@@ -41,5 +41,6 @@ On the remaining data set I used the random forest method.
 ```{r}
 library(caret)
 modFit <- train(classe ~ ., data=preds, method="rf", trControl = trainControl(method="cv", number=5))
+print(modFit$finalModel)
 ```
 

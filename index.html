@@ -90,6 +90,22 @@ completeCols &lt;- completes[,!incompleteCols]</code></pre>
 <pre><code>## Loading required package: randomForest
 ## randomForest 4.6-10
 ## Type rfNews() to see new features/changes/bug fixes.</code></pre>
+<pre class="r"><code>print(modFit$finalModel)</code></pre>
+<pre><code>## 
+## Call:
+##  randomForest(x = x, y = y, mtry = param$mtry) 
+##                Type of random forest: classification
+##                      Number of trees: 500
+## No. of variables tried at each split: 2
+## 
+##         OOB estimate of  error rate: 17.24%
+## Confusion matrix:
+##     A  B  C  D  E class.error
+## A 101  5  2  1  0   0.0733945
+## B  14 60  2  1  2   0.2405063
+## C   5 10 54  1  0   0.2285714
+## D   4  0  6 57  2   0.1739130
+## E   2  7  5  1 64   0.1898734</code></pre>
 
 
 </div>
