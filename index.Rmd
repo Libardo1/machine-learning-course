@@ -1,0 +1,45 @@
+---
+title: "Machine Learning Course Proj"
+author: "Katherine Bailey"
+date: "January 25, 2015"
+output: html_document
+---
+This report can be viewed at http://katbailey.github.io/machine-learning-course/
+
+After loading in the data it was clear that some clean-up was required as there was a lot of missing data. I noticed that certain columns only had data where the new_window value was "yes", which was 406 out of the 19216 rows. This also corresponded to the split I got using complete.cases. I decided therefore to reduce the data set to these complete cases.
+
+I also noticed that many data values were had "#DIV/0!" as a value so I decided to remove any columns that had this.
+
+```{r}
+training <- read.csv("pml-training.csv")
+completes <- training[complete.cases(training),]
+getDvzeros <- function(data) {
+  names = names(data)
+	incomplete <- vector()
+	for (i in seq_along(names)) {
+		stf <- data[[names[i]]]
+		incomplete[i] = FALSE
+		for (j in seq_along(stf)) {
+			if (stf[j] == "#DIV/0!") {
+				incomplete[i] = TRUE
+			}
+		}
+	}
+	incomplete
+}
+incompleteCols <- getDvzeros(completes)
+completeCols <- completes[,!incompleteCols]
+```
+
+I then got rid of the first 8 columns as they did not look like good candidates for predictors:
+
+```{r}
+preds <- completeCols[,8:127]
+```
+
+On the remaining data set I used the random forest method.
+```{r}
+library(caret)
+modFit <- train(classe ~ ., data=preds, method="rf", trControl = trainControl(method="cv", number=5))
+```
+

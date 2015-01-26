@@ -80,6 +80,16 @@ getDvzeros &lt;- function(data) {
 }
 incompleteCols &lt;- getDvzeros(completes)
 completeCols &lt;- completes[,!incompleteCols]</code></pre>
+<p>I then got rid of the first 8 columns as they did not look like good candidates for predictors:</p>
+<pre class="r"><code>preds &lt;- completeCols[,8:127]</code></pre>
+<p>On the remaining data set I used the random forest method.</p>
+<pre class="r"><code>library(caret)</code></pre>
+<pre><code>## Loading required package: lattice
+## Loading required package: ggplot2</code></pre>
+<pre class="r"><code>modFit &lt;- train(classe ~ ., data=preds, method=&quot;rf&quot;, trControl = trainControl(method=&quot;cv&quot;, number=5))</code></pre>
+<pre><code>## Loading required package: randomForest
+## randomForest 4.6-10
+## Type rfNews() to see new features/changes/bug fixes.</code></pre>
 
 
 </div>
