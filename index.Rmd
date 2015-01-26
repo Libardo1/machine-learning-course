@@ -8,7 +8,7 @@ This report can be viewed at http://katbailey.github.io/machine-learning-course/
 
 After loading in the data it was clear that some clean-up was required as there was a lot of missing data. I noticed that certain columns only had data where the new_window value was "yes", which was 406 out of the 19216 rows. This also corresponded to the split I got using complete.cases. I decided therefore to reduce the data set to these complete cases.
 
-I also noticed that many data values were had "#DIV/0!" as a value so I decided to remove any columns that had this.
+I also noticed that many data fields had "#DIV/0!" as a value so I decided to remove any columns that had this in at least one row.
 
 ```{r}
 training <- read.csv("pml-training.csv")
@@ -17,10 +17,10 @@ getDvzeros <- function(data) {
   names = names(data)
 	incomplete <- vector()
 	for (i in seq_along(names)) {
-		stf <- data[[names[i]]]
+		col <- data[[names[i]]]
 		incomplete[i] = FALSE
-		for (j in seq_along(stf)) {
-			if (stf[j] == "#DIV/0!") {
+		for (j in seq_along(col)) {
+			if (col[j] == "#DIV/0!") {
 				incomplete[i] = TRUE
 			}
 		}
@@ -31,16 +31,27 @@ incompleteCols <- getDvzeros(completes)
 completeCols <- completes[,!incompleteCols]
 ```
 
-I then got rid of the first 8 columns as they did not look like good candidates for predictors:
+I also removed the first 8 columns as they did not look like good candidates for predictors. The first was just an index column; the second was the user name and since we know that each participant performed each of the different classes we know this can't be a predictor of the outcome. Then there were variables relating to timestamps, and finally those relating to the window, and since we had already filtered to only new windows, these no longer seemed relevant.
 
 ```{r}
 preds <- completeCols[,8:127]
 ```
 
-On the remaining data set I used the random forest method.
-```{r}
+On the remaining data set I used the random forest method, because it is considered a very accurate prediction algorithm, using cross validation with a k value of 5.
+
+```{r echo=FALSE}
+library(lattice)
+library(ggplot2)
+library(randomForest)
 library(caret)
+```
+
+```{r}
+set.seed(1234)
 modFit <- train(classe ~ ., data=preds, method="rf", trControl = trainControl(method="cv", number=5))
 print(modFit$finalModel)
 ```
 
+The expected out of sample error rate is 16%.
+
+Unfortunately I have not managed to use the model successfully on the test set.

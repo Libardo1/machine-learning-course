@@ -61,17 +61,17 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 
 <p>This report can be viewed at <a href="http://katbailey.github.io/machine-learning-course/">http://katbailey.github.io/machine-learning-course/</a></p>
 <p>After loading in the data it was clear that some clean-up was required as there was a lot of missing data. I noticed that certain columns only had data where the new_window value was “yes”, which was 406 out of the 19216 rows. This also corresponded to the split I got using complete.cases. I decided therefore to reduce the data set to these complete cases.</p>
-<p>I also noticed that many data values were had “#DIV/0!” as a value so I decided to remove any columns that had this.</p>
+<p>I also noticed that many data fields had “#DIV/0!” as a value so I decided to remove any columns that had this in at least one row.</p>
 <pre class="r"><code>training &lt;- read.csv(&quot;pml-training.csv&quot;)
 completes &lt;- training[complete.cases(training),]
 getDvzeros &lt;- function(data) {
   names = names(data)
     incomplete &lt;- vector()
     for (i in seq_along(names)) {
-        stf &lt;- data[[names[i]]]
+        col &lt;- data[[names[i]]]
         incomplete[i] = FALSE
-        for (j in seq_along(stf)) {
-            if (stf[j] == &quot;#DIV/0!&quot;) {
+        for (j in seq_along(col)) {
+            if (col[j] == &quot;#DIV/0!&quot;) {
                 incomplete[i] = TRUE
             }
         }
@@ -80,17 +80,14 @@ getDvzeros &lt;- function(data) {
 }
 incompleteCols &lt;- getDvzeros(completes)
 completeCols &lt;- completes[,!incompleteCols]</code></pre>
-<p>I then got rid of the first 8 columns as they did not look like good candidates for predictors:</p>
+<p>I also removed the first 8 columns as they did not look like good candidates for predictors. The first was just an index column; the second was the user name and since we know that each participant performed each of the different classes we know this can’t be a predictor of the outcome. Then there were variables relating to timestamps, and finally those relating to the window, and since we had already filtered to only new windows, these no longer seemed relevant.</p>
 <pre class="r"><code>preds &lt;- completeCols[,8:127]</code></pre>
-<p>On the remaining data set I used the random forest method.</p>
-<pre class="r"><code>library(caret)</code></pre>
-<pre><code>## Loading required package: lattice
-## Loading required package: ggplot2</code></pre>
-<pre class="r"><code>modFit &lt;- train(classe ~ ., data=preds, method=&quot;rf&quot;, trControl = trainControl(method=&quot;cv&quot;, number=5))</code></pre>
-<pre><code>## Loading required package: randomForest
-## randomForest 4.6-10
+<p>On the remaining data set I used the random forest method, because it is considered a very accurate prediction algorithm, using cross validation with a k value of 5.</p>
+<pre><code>## randomForest 4.6-10
 ## Type rfNews() to see new features/changes/bug fixes.</code></pre>
-<pre class="r"><code>print(modFit$finalModel)</code></pre>
+<pre class="r"><code>set.seed(1234)
+modFit &lt;- train(classe ~ ., data=preds, method=&quot;rf&quot;, trControl = trainControl(method=&quot;cv&quot;, number=5))
+print(modFit$finalModel)</code></pre>
 <pre><code>## 
 ## Call:
 ##  randomForest(x = x, y = y, mtry = param$mtry) 
@@ -98,14 +95,16 @@ completeCols &lt;- completes[,!incompleteCols]</code></pre>
 ##                      Number of trees: 500
 ## No. of variables tried at each split: 2
 ## 
-##         OOB estimate of  error rate: 17.24%
+##         OOB estimate of  error rate: 16.01%
 ## Confusion matrix:
 ##     A  B  C  D  E class.error
-## A 101  5  2  1  0   0.0733945
-## B  14 60  2  1  2   0.2405063
-## C   5 10 54  1  0   0.2285714
-## D   4  0  6 57  2   0.1739130
-## E   2  7  5  1 64   0.1898734</code></pre>
+## A 102  4  2  1  0  0.06422018
+## B  15 59  1  2  2  0.25316456
+## C   6  5 56  2  1  0.20000000
+## D   3  1  5 58  2  0.15942029
+## E   0  7  3  3 66  0.16455696</code></pre>
+<p>The expected out of sample error rate is 16%.</p>
+<p>Unfortunately I have not managed to use the model successfully on the test set.</p>
 
 
 </div>
