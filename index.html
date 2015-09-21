@@ -196,6 +196,7 @@ modFitRF$finalModel</code></pre>
 <div id="conclusion" class="section level2">
 <h2>Conclusion</h2>
 <p>The RandomForest model performed very well. One drawback with it was that it took a very long time to run (almost an hour running on my Mac) due to all the permutations it had to try out, but in the absence of any obvious basis on which to cut any of the predictors out of the model, this seems like a reasonable approach.</p>
+<p>Reflecting on the failed attempt at using Linear Discriminant Analysis, one possible explanation might be that I didn’t scale the variables first, which can be a very important step when using linear models. A worthwhile excercise might be to perform appropriate scaling of the predictors and then make another attempt at using LDA.</p>
 </div>
 
 
