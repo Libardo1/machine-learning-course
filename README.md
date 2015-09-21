@@ -1,1 +1,1 @@
-# machine-learning-course
+http://katbailey.github.io/machine-learning-course/

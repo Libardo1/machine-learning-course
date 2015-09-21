@@ -1,0 +1,136 @@
+---
+title: "Machine Learning Course Proj"
+author: "Katherine Bailey"
+date: "September 19, 2015"
+output: html_document
+---
+This report can be viewed at http://katbailey.github.io/machine-learning-course/
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(caret)
+library(randomForest)
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(echo=TRUE)
+```
+## Tidying the data
+An initial look at the training dataset showed that some clean-up was required. Many fields had "#DIV/0!" as a value so I decided to treat these as NAs when reading in the data.
+```{r}
+training <- read.csv("pml-training.csv", na.strings=c("NA", "#DIV/0!"))
+```
+
+Additionally, certain columns only had data where the new_window value was "yes", which was 406 out of the 19216 observations. These columns contained aggregations of the data across the entire window, but in some cases the aggregations did not seem correct, e.g. a value for "max_roll_belt" that was clearly in fact the max value of the "yaw_belt" measurement for that observation. Also, if I wanted to use these as predictors I could only predict on new data that had values for these fields. Given those considerations, and the fact that using these fields would mean cutting my training observations down to a fifth their original number, I decided to cut out these columns from the set of potential predictors.
+```{r}
+num_nas <- data.frame(colname = names(training), nas = sapply(training, function(x) { sum(is.na(x))}))
+cols <- as.character(num_nas[which(num_nas$nas < 19000),]$colname)
+```
+This left me with `r length(cols)` columns. Some of these, such as the X variable, which is just an index, timestamp and time window information, clearly would be of no use as predictors, but before trimming the data set down further I performed some exploratory analysis to get a better understanding of the data.
+
+##Exploratory Data Analysis
+
+Having read the explanation of how the data were collected at http://groupware.les.inf.puc-rio.br/har, it seemed clear that all observations in a given "window" would have the same "classe" value. I confirmed this by running:
+```{r}
+classes <- data.frame(num_classes = tapply(training$classe, as.factor(training$num_window), 
+     function(x){
+       # By converting the factor to a character vector and then back to
+       # a factor, the number of levels will include only those that are
+       # present in this particular window.
+       length(levels(as.factor(as.character(x))))
+    }))
+# How many windows have a num_classes other than 1?
+length(classes[which(classes$num != 1),])
+```
+
+To get a better understanding of the data I decided that the best way to visualize it was by plotting window sequences against each other, colored by classe, and further broken out by user. To do this, I first arranged the data according to window number, got the length of each window, and then added a "seq" column which held the sequence number of each observation within its window.
+```{r}
+arranged <- arrange(training, num_window)
+length_of_window <- tapply(arranged$X, as.factor(arranged$num_window), length)
+seq <- numeric()
+for (i in 1:length(length_of_window)) {
+  seq <- c(seq, 1:length_of_window[i])
+}
+arranged$seq <- seq
+# Select just the columns we've found not to contain mostly NA values.
+selected <- select(arranged, one_of(cols))
+selected$seq <- arranged$seq
+```
+I then wrote a function which, given the data set and a specific predictor, would generate a plot of that predictor's values arranged according to window sequence. The idea was to see if any pattern popped out in any of the predictors, showing a clear separation between the classes.
+
+```{r}
+print_predictor_plot <- function(df, predictor, print_to_file=TRUE) {
+  if (print_to_file) {
+    name <- paste0(predictor,".png")
+    png(paste0(predictor,".png"), bg = "transparent")
+  }
+
+  df$pred <- df[[predictor]]
+  g <- ggplot(df, aes(seq, pred)) + 
+    facet_wrap("user_name") + 
+    geom_point(aes(colour=classe))
+  if (print_to_file) {
+    print(g)
+    dev.off()
+  }
+  else {
+    g
+  }
+}
+```
+I ran this function on all the numeric predictors.
+```{r, eval=FALSE}
+predictors <- names(selected)[8:59]
+for (i in 1:length(predictors)) {
+  print_predictor_plot(selected, predictors[i])
+}
+```
+This generated 52 plots that I could easily glance through to see if anything interesting jumped out. Here's the plot for the "accel_belt_x" variable.
+
+```{r figure1}
+g <- print_predictor_plot(selected, "accel_belt_x", FALSE)
+print(g)
+```
+
+We do see some separation among the classes, and there seem to be marked differences in the values between the different users. However, the majority of these plots did not point to any immediately obvious predictors. They did however help identify some outliers. Here's the plot for the "gyros_dumbbell_x" variable, for example:
+```{r figure2}
+g <- print_predictor_plot(selected, "gyros_dumbbell_x", FALSE)
+print(g)
+```
+
+Looking at the data for Eurico we see an obvious outlier value. There were other plots like this, and I decided to eliminate the two observations they came from as they seemed to be just glitches that occured during measurement.
+```{r}
+filtered <- filter(training, (X != 5373 & X != 9274))
+```
+##The model
+I first tried an LDA model using 13 principle components as predictors (the number of components required to account for 80% of the variance), but got very poor results. So I decided a tree-based approach would be more suitable and chose the RandomForest method which is known to produce very accurate results. An advantage this has is that it includes its own cross-validation because at every split it uses a subset of the available predictors on a subset of the data and validates it against the rest of the data. I chose to build the model using only the measurement values from the monitors as predictors.
+
+```{r}
+relevant_vars <- c("classe", cols[8:59])
+filtered <- select(filtered, one_of(relevant_vars))
+```
+
+Although RandomForest includes its own cross-validation through the out of bag samples, I further partitioned the training data so as to have a completely separate validation set on which to validate the model afterwards.
+
+```{r}
+set.seed(1234)
+inTrain = createDataPartition(filtered$classe, p = 0.6)[[1]]
+trainingSet = filtered[inTrain,]
+validationSet = filtered[-inTrain,]
+modFitRF <- train(classe ~ ., data=trainingSet, method="rf")
+modFitRF$finalModel
+```
+
+The final model uses 27 predictor variables at each split. We see that the out of bag error estimate is 0.84%, so we would expect to get close to 99% accuracy on the validation set.
+
+## Validating the model
+
+```{r}
+confusionMatrix(validationSet$classe, predict(modFitRF, validationSet))
+```
+The accuracy on our validation set is 98.85%, pretty close to what we'd expect given the estimated error rate from the RandomForest model.
+
+## Conclusion
+The RandomForest model performed very well. One drawback with it was that it took a very long time to run (almost an hour running on my Mac) due to all the permutations it had to try out, but in the absence of any obvious basis on which to cut any of the predictors out of the model, this seems like a reasonable approach.
+
+Reflecting on the failed attempt at using Linear Discriminant Analysis, one possible explanation might be that I didn't scale the variables first, which can be a very important step when using linear models. A worthwhile excercise might be to perform appropriate scaling of the predictors and then make another attempt at using LDA.
+
+
